@@ -3,15 +3,8 @@ import numpy as np
 import heapq
 from collections import deque
 from eval import linear_approximation_error
-from utils import dynamic_feature_filter, generate_grid_with_filter
+from utils import dynamic_feature_filter, generate_grid_with_filter, is_unimodal
 
-
-def heuristic(f,current_x, target_x, current_f, target_f, num_samples=10):
-    """
-    A simple heuristic: the local linear error from the current point to the target.
-    This is admissible if f is reasonably smooth.
-    """
-    return linear_approximation_error(f,current_x, target_x, current_f, target_f, num_samples)
 
 def heuristic(f,current_x, target_x, current_f, target_f, num_samples=10):
     """
@@ -19,23 +12,6 @@ def heuristic(f,current_x, target_x, current_f, target_f, num_samples=10):
     This is admissible if f is reasonably smooth.
     """
     return linear_approximation_error(f, current_x, target_x, current_f, target_f, num_samples)
-
-# make sure current path is simple enough
-def is_unimodal(f_values, tol=1e-6):
-    """
-    if f_values most complex is unimodal
-    can increase than decrease 
-    - calculate diff between 
-    """
-    signs = []
-    for i in range(len(f_values) - 1):
-        diff = f_values[i+1] - f_values[i]
-        if abs(diff) < tol:
-            continue
-        s = 1 if diff > 0 else -1
-        if not signs or s != signs[-1]:
-            signs.append(s)
-    return len(signs) <= 2
 
 # def a_star_search(initial_state, initial_x, f_proto, target_x, f_target, grid, max_steps, monotonic_increasing, tol=1e-6):
 def a_star_search(initial_state, initial_x, f_proto, target_x, f_target,f, grid, max_steps, monotonic_increasing, tol=1e-6):

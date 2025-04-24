@@ -53,3 +53,20 @@ def dynamic_feature_filter(f,x_proto, x_target, num_samples=10, threshold=0.1):
           high_variance_features.append(i)
     return x_proto_adj, variances, low_variance_features, high_variance_features
 
+
+# make sure current path is simple enough
+def is_unimodal(f_values, tol=1e-6):
+    """
+    if f_values most complex is unimodal
+    can increase than decrease 
+    - calculate diff between 
+    """
+    signs = []
+    for i in range(len(f_values) - 1):
+        diff = f_values[i+1] - f_values[i]
+        if abs(diff) < tol:
+            continue
+        s = 1 if diff > 0 else -1
+        if not signs or s != signs[-1]:
+            signs.append(s)
+    return len(signs) <= 2

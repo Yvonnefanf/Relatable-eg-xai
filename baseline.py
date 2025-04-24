@@ -1,5 +1,4 @@
-
-
+import numpy as np
 """ Baseline one step linear"""
 def baseline_one_step(prototypes, f, X_target, avg_abs_pred, num_points=10):
     """
