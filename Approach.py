@@ -89,7 +89,7 @@ def a_star_search(initial_state, initial_x, f_proto, target_x, f_target,f, grid,
                     heapq.heappush(heap, (new_est_cost, new_cum_error, counter, new_state, new_path, new_f_values, steps + 1))    
     return best_solution
 
-def run_search_path(f,prototypes, prototype_labels, X_target,partitions=2,max_steps=5):
+def run_search_path(f,prototypes, prototype_labels, X_target,target_label, partitions=2,max_steps=5):
     # Choose a test instance to explain (e.g., the first one)
     f_target = f(X_target)
     # Define multiple prototype candidates
@@ -114,7 +114,7 @@ def run_search_path(f,prototypes, prototype_labels, X_target,partitions=2,max_st
 
     print("X_proto",X_proto, 'org_proto', f(X_proto), "label", X_proto_label)
     print("X_proto",x_proto_adj, 'pred_prototype adj', f(x_proto_adj))
-    print("X_target",X_target,'pred_target', f_target)
+    print("X_target",X_target,'pred_target', f_target, "label",target_label)
     # result = dfs(initial_state, [initial_x], [f_proto], 0.0, grid, max_steps, monotonic_increasing, tol=1e-6)
     result = a_star_search(initial_state, initial_x, f_proto, X_target, f_target, f, grid, max_steps,monotonic_increasing)
     #
