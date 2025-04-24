@@ -1,6 +1,7 @@
 import heapq
 import numpy as np
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
+from dataclasses import dataclass
 
 from search_base import SearchStrategy
 from eval import linear_approximation_error
@@ -122,3 +123,89 @@ class AStarStrategy(SearchStrategy):
                         ))
         
         return None  # No path found 
+
+class GreedyBestFirstStrategy(SearchStrategy):
+    """
+    Greedy Best-First Search strategy.
+    Faster than A* but may not find optimal path.
+    Only considers heuristic cost to target, ignoring path cost.
+    """
+    
+    def search(self, base) -> Optional[Dict[str, Any]]:
+        f = base.f
+        grid = base.grid
+        counter = 0
+        
+        # Initialize with start state - only using heuristic cost
+        start_item = (
+            heuristic(f, base.initial_x, base.X_target, base.f_proto, base.f_target),
+            counter,
+            base.initial_state,
+            [base.initial_x],
+            [base.f_proto],
+            0,
+            0.0  # cumulative error (kept but not used for decisions)
+        )
+        
+        heap = [start_item]
+        visited = set()
+
+        while heap:
+            h_cost, counter, state, path, f_values, steps, cum_error = heapq.heappop(heap)
+            
+            if state in visited:
+                continue
+            visited.add(state)
+
+            # Check if target reached
+            if all(state[i] == len(grid[i]) - 1 for i in range(base.d)):
+                return {
+                    'path': path,
+                    'f_values': f_values,
+                    'error': cum_error
+                }
+
+            if steps >= base.max_steps:
+                continue
+
+            current_x = np.array([grid[i][state[i]] for i in range(base.d)])
+            current_f = f_values[-1]
+
+            # Consider larger steps first (opposite of A*)
+            for i in range(base.d):
+                if state[i] < len(grid[i]) - 1:
+                    remaining_steps = len(grid[i]) - state[i]
+                    for step_size in range(remaining_steps - 1, 0, -1):
+                        new_state = list(state)
+                        new_state[i] += step_size
+                        new_state = tuple(new_state)
+                        
+                        new_x = np.array([grid[j][new_state[j]] for j in range(base.d)])
+                        new_f = f(new_x)
+
+                        # Calculate error (for return value only)
+                        local_err = linear_approximation_error(
+                            f, current_x, new_x, current_f, new_f)
+                        new_cum_error = cum_error + local_err
+                        
+                        # Only use heuristic for decisions
+                        h = heuristic(f, new_x, base.X_target, new_f, base.f_target)
+
+                        new_path = path + [new_x]
+                        new_f_values = f_values + [new_f]
+                        
+                        if not is_unimodal(new_f_values):
+                            continue
+
+                        counter += 1
+                        heapq.heappush(heap, (
+                            h,  # only heuristic cost
+                            counter,
+                            new_state,
+                            new_path,
+                            new_f_values,
+                            steps + 1,
+                            new_cum_error
+                        ))
+        return None
+

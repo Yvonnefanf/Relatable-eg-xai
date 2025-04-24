@@ -11,5 +11,5 @@ def linear_approximation_error(f, x_start, x_end, f_start, f_end, num_samples=10
         f_interp = f_start + t * (f_end - f_start)
         f_actual = f(x_interp)
         accumulate_error += abs(f_actual - f_interp)
-    return accumulate_error 
+    return accumulate_error / num_samples
 

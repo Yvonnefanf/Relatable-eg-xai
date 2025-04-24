@@ -6,6 +6,8 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from Approach_ import RelatabilitySolver  # Import lver
+from search_strategies import AStarStrategy, GreedyBestFirstStrategy
+import time
 
 # Load dataxq
 pd_data = pd.read_csv('./datasets/boston.csv')
@@ -86,7 +88,7 @@ def explain_prediction(x_target, threshold=0.1):
     if result:
         print("\n=== Explanation Path Found ===")
         print("\nStarting Point (Prototype):")
-        print(f"Predicted Price: ${result.f_values[0] * 1000:.2f}")
+        print(f"Predicted Price: ${result.f_values[0]:.2f}")
         
         for i in range(1, len(result.path)):
             print(f"\nStep {i}:")
@@ -98,8 +100,8 @@ def explain_prediction(x_target, threshold=0.1):
             changes = current - previous
             
             # Show price change
-            price_change = (result.f_values[i] - result.f_values[i-1]) * 1000
-            print(f"Price: ${result.f_values[i] * 1000:.2f} ({'+' if price_change >= 0 else ''}{price_change:.2f})")
+            price_change = (result.f_values[i] - result.f_values[i-1])
+            print(f"Price: ${result.f_values[i]:.2f} ({'+' if price_change >= 0 else ''}{price_change:.2f})")
             
             # Show significant feature changes
             significant_changes = [(name, change) for name, change in zip(X.columns, changes) if abs(change) > 0.01]
@@ -112,20 +114,81 @@ def explain_prediction(x_target, threshold=0.1):
         print("\n=== Final Result ===")
         print(f"Total Steps: {len(result.path) - 1}")
         print(f"Path Error: {result.error:.4f}")
-        price_diff = (result.f_values[-1] - result.f_values[0]) * 1000
+        price_diff = (result.f_values[-1] - result.f_values[0])
         print(f"Total Price Change: ${'+' if price_diff >= 0 else ''}{price_diff:.2f}")
     else:
         print("Could not find a suitable explanation path")
 
+index = 3
 # Example: Explain a prediction for a test house
-test_house = X_test.iloc[1].values  # Take first house from test set as example
+test_house = X_test.iloc[index].values  # Take first house from test set as example
 print("=== Target House ===")
-print(f"Actual price: ${y_test.iloc[1] * 1000:.2f}")
-print(f"Predicted price: ${f(test_house) * 1000:.2f}")
+print(f"Actual price: ${y_test.iloc[index]:.2f}")
+print(f"Predicted price: ${f(test_house):.2f}")
 print("\nGenerating explanation...")
 
 # Find and show explanation
 explain_prediction(test_house, threshold=0.1)
+
+
+
+def compare_strategies(test_house, threshold=0.1):
+    """Compare different search strategies on the same house"""
+    strategies = {
+        "A* Search": AStarStrategy(),
+        "Greedy Best-First": GreedyBestFirstStrategy()
+    }
+    
+    print("\n=== Strategy Comparison ===")
+    print(f"Target house prediction: ${f(test_house):.2f}")
+    print("-" * 50)
+    
+    results = {}
+    for name, strategy in strategies.items():
+        start_time = time.time()
+        
+        # Create solver with current strategy
+        solver = RelatabilitySolver(
+            f=f,
+            prototypes=prototypes,
+            prototype_labels=prototype_labels,
+            strategy=strategy
+        )
+        
+        # Find path
+        result = solver.find_path(test_house, threshold)
+        end_time = time.time()
+        
+        if result:
+            results[name] = {
+                'time': end_time - start_time,
+                'steps': len(result.path) - 1,
+                'error': result.error,
+                'path': result.path,
+                'f_values': result.f_values
+            }
+            
+            print(f"\n{name}:")
+            print(f"Time: {results[name]['time']:.3f} seconds")
+            print(f"Steps: {results[name]['steps']}")
+            print(f"Error: {results[name]['error']:.4f}")
+            print(f"Final Price: ${result.f_values[-1]:.2f}")
+        else:
+            print(f"\n{name}: No path found")
+    
+    return results
+
+# Test houses with different characteristics
+test_indices = [10]  # Test multiple houses
+
+for index in test_indices:
+    print(f"\nTesting house #{index}")
+    print("=" * 50)
+    test_house = X_test.iloc[index].values
+    print(f"Actual price: ${y_test.iloc[index]:.2f}")
+    print(f"Predicted price: ${f(test_house):.2f}")
+    
+    results = compare_strategies(test_house)
 
 
 

@@ -76,6 +76,7 @@ class SearchPathBase:
         closest_proto_index = np.argmin(distances)
         self.X_proto = self.prototypes[closest_proto_index]
         self.proto_label = self.prototype_labels[closest_proto_index]
+        
 
         # Adjust prototype for low-sensitivity directions
         self.x_proto_adj, self.variances, self.low_var_idx, self.high_var_idx = \
@@ -89,6 +90,8 @@ class SearchPathBase:
         self.initial_x = np.array([self.grid[i][0] for i in range(self.d)])
         self.f_proto = self.f(self.initial_x)
         self.monotonic_increasing = (self.f_target >= self.f_proto)
+        print("prototype", self.X_proto, "label:", self.proto_label, 'prediction:', self.f_proto )
+        
 
     def execute_search(self) -> Optional[SearchResult]:
         """Execute the search using the configured strategy"""
