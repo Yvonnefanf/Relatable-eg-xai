@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 import heapq
 from collections import deque
@@ -129,7 +130,7 @@ def run_search_path(f,prototypes, prototype_labels, X_target,partitions=2,max_st
     
     d = len(X_proto)
     initial_state = tuple([0] * d)
-    initial_x = np.array([grid[i][0] for i in range(d)])  # 与 x_proto 应相同
+    initial_x = np.array([grid[i][0] for i in range(d)])  #  x_proto 
     f_proto = f(initial_x)
     f_target = f(X_target)
     # identify the monotonic direction
