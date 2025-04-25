@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 # Grid generation that fixes low-variance features.
 def generate_grid_with_filter(x_proto_adj, x_target, partitions, low_variance_features):
     """
@@ -72,42 +73,74 @@ def is_unimodal(f_values, tol=1e-6):
     return len(signs) <= 2
 
 # Function to explain a prediction and print the path details
-def explain_prediction(solver, X,x_target, threshold=0.1):
+def explain_prediction(solver, X, y, X_pred, x_target, threshold=0.1):
     """
-    Explain a prediction for a given house with clear step-by-step progression.
-    
+    Explain a prediction for a given instance with clear step-by-step progression,
+    including the most similar case from the dataset for each step.
+
     Args:
-        x_target: Features of the house to explain
-        threshold: Sensitivity threshold for feature filtering
+        solver: The pathfinding solver object.
+        X: DataFrame or NumPy array of features for the dataset.
+        y: Series or NumPy array of target labels for the dataset.
+        X_pred: Series or NumPy array of pre-computed predictions for X.
+        x_target: Features of the instance to explain.
+        threshold: Sensitivity threshold for feature filtering.
     """
     result = solver.find_path(x_target, threshold=threshold)
-    
+
     if result:
         print("\n=== Explanation Path Found ===")
         print("\nStarting Point (Prototype):")
         print(f"Predicted Price: ${result.f_values[0]:.2f}")
-        
+
         for i in range(1, len(result.path)):
             print(f"\nStep {i}:")
             print("-" * 30)
-            
+
             # Get current and previous points
             current = result.path[i]
             previous = result.path[i-1]
             changes = current - previous
-            
+
             # Show price change
             price_change = (result.f_values[i] - result.f_values[i-1])
             print(f"Price: ${result.f_values[i]:.2f} ({'+' if price_change >= 0 else ''}{price_change:.2f})")
-            
+
             # Show significant feature changes
-            significant_changes = [(name, change) for name, change in zip(X.columns, changes) if abs(change) > 0.01]
+            feature_names = X.columns if isinstance(X, pd.DataFrame) else [f'feature_{j}' for j in range(X.shape[1])]
+            significant_changes = [(name, change) for name, change in zip(feature_names, changes) if abs(change) > 0.01]
             if significant_changes:
                 print("Changes made:")
                 for name, change in significant_changes:
                     direction = "↑" if change > 0 else "↓"
                     print(f"  {name}: {direction} {abs(change):.2f}")
-        
+
+            # --- Find and print most similar case ---
+            try:
+                # Calculate distances (assuming X is DataFrame or numpy array)
+                X_values = X.values if isinstance(X, pd.DataFrame) else X
+                distances = np.linalg.norm(X_values - current, axis=1)
+                most_similar_idx = np.argmin(distances)
+
+                # Retrieve similar case data
+                similar_case_y_actual = y.iloc[most_similar_idx] if isinstance(y, (pd.Series, pd.DataFrame)) else y[most_similar_idx]
+                # Retrieve pre-computed prediction for the similar case
+                similar_case_y_pred = X_pred.iloc[most_similar_idx] if isinstance(X_pred, (pd.Series, pd.DataFrame)) else X_pred[most_similar_idx]
+
+                print("\nMost Similar Case Found:")
+                print(f"  Dataset Index: {most_similar_idx}")
+                # You might want to print some features of the similar case here
+                # similar_case_X = X.iloc[most_similar_idx] if isinstance(X, pd.DataFrame) else X[most_similar_idx]
+                # print(f"  Features: {similar_case_X}")
+                print(f"  Actual Label: ${similar_case_y_actual:.2f}")
+                print(f"  Predicted Label: ${similar_case_y_pred:.2f}")
+
+            except IndexError:
+                 print(f"\nWarning: Index {most_similar_idx} out of bounds for X_pred or y.")
+            except Exception as e:
+                print(f"\nCould not find or process similar case for step {i}: {e}")
+            # --- End similar case ---
+
         print("\n=== Final Result ===")
         print(f"Total Steps: {len(result.path) - 1}")
         print(f"Path Error: {result.error:.4f}")
