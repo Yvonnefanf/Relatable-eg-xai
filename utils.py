@@ -70,3 +70,48 @@ def is_unimodal(f_values, tol=1e-6):
         if not signs or s != signs[-1]:
             signs.append(s)
     return len(signs) <= 2
+
+# Function to explain a prediction and print the path details
+def explain_prediction(solver, X,x_target, threshold=0.1):
+    """
+    Explain a prediction for a given house with clear step-by-step progression.
+    
+    Args:
+        x_target: Features of the house to explain
+        threshold: Sensitivity threshold for feature filtering
+    """
+    result = solver.find_path(x_target, threshold=threshold)
+    
+    if result:
+        print("\n=== Explanation Path Found ===")
+        print("\nStarting Point (Prototype):")
+        print(f"Predicted Price: ${result.f_values[0]:.2f}")
+        
+        for i in range(1, len(result.path)):
+            print(f"\nStep {i}:")
+            print("-" * 30)
+            
+            # Get current and previous points
+            current = result.path[i]
+            previous = result.path[i-1]
+            changes = current - previous
+            
+            # Show price change
+            price_change = (result.f_values[i] - result.f_values[i-1])
+            print(f"Price: ${result.f_values[i]:.2f} ({'+' if price_change >= 0 else ''}{price_change:.2f})")
+            
+            # Show significant feature changes
+            significant_changes = [(name, change) for name, change in zip(X.columns, changes) if abs(change) > 0.01]
+            if significant_changes:
+                print("Changes made:")
+                for name, change in significant_changes:
+                    direction = "↑" if change > 0 else "↓"
+                    print(f"  {name}: {direction} {abs(change):.2f}")
+        
+        print("\n=== Final Result ===")
+        print(f"Total Steps: {len(result.path) - 1}")
+        print(f"Path Error: {result.error:.4f}")
+        price_diff = (result.f_values[-1] - result.f_values[0])
+        print(f"Total Price Change: ${'+' if price_diff >= 0 else ''}{price_diff:.2f}")
+    else:
+        print("Could not find a suitable explanation path")
