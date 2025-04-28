@@ -48,81 +48,133 @@ class AStarStrategy(SearchStrategy):
         counter = 0
         
         # Initialize search with start state
+        # Heap stores: (est_cost, cum_error, counter, state)
+        start_cost = heuristic(f, base.initial_x, base.X_target, base.f_proto, base.f_target)
         start_item = (
-            heuristic(f, base.initial_x, base.X_target, base.f_proto, base.f_target),
-            0.0,  # cumulative error
-            counter,
-            base.initial_state,
-            [base.initial_x],  # path
-            [base.f_proto],    # f_values
-            0                  # steps
+            start_cost, # estimated cost
+            0.0,        # cumulative error
+            counter,    # tie-breaker
+            base.initial_state
         )
-        
         heap = [start_item]
+        
+        # Visited maps state -> min_cumulative_error
         visited = {}
+        # Path_data maps state -> (path, f_values)
+        path_data = {base.initial_state: ([base.initial_x], [base.f_proto])}
+        # We need to store steps associated with state as well
+        step_count = {base.initial_state: 0}
 
         while heap:
-            est_cost, cum_error, counter, state, path, f_values, steps = heapq.heappop(heap)
+            est_cost, cum_error, _, state = heapq.heappop(heap) # counter (_) is only for tie-breaking
 
-            # Skip if we've seen this state with lower error
+            # Retrieve path, f_values, and steps for the current state
+            path, f_values = path_data[state]
+            steps = step_count[state]
+
+            # Skip if we've found a better path to this state already
             if state in visited and visited[state] <= cum_error:
                 continue
             visited[state] = cum_error
-
-            # Check if we've reached the target state
+            
+            # Goal check
             if all(state[i] == len(grid[i]) - 1 for i in range(base.d)):
+                # Path found, return results from path_data
                 return {
                     'path': path,
                     'f_values': f_values,
                     'error': cum_error
                 }
 
-            # Check if we've exceeded max steps
+            # Max steps check
             if steps >= base.max_steps:
                 continue
 
-            current_x = np.array([grid[i][state[i]] for i in range(base.d)])
+            current_x = path[-1] # Get current_x from the path
             current_f = f_values[-1]
 
-            # Explore each dimension
+            # Explore neighbors
             for i in range(base.d):
                 if state[i] < len(grid[i]) - 1:
-                    # Try different step sizes in this dimension
                     for step_size in range(1, len(grid[i]) - state[i]):
-                        new_state = list(state)
-                        new_state[i] += step_size
-                        new_state = tuple(new_state)
+                        new_state_list = list(state)
+                        new_state_list[i] += step_size
+                        new_state = tuple(new_state_list)
                         
-                        # Calculate new position and function value
                         new_x = np.array([grid[j][new_state[j]] for j in range(base.d)])
-                        new_f = f(new_x)
+                        # --- Debug prints start ---
+                        print(f"DEBUG: Dimension={i}, StepSize={step_size}, NewState={new_state}") 
+                        print(f"DEBUG: new_x = {new_x}")
+                        try:
+                            new_f = f(new_x)
+                            print(f"DEBUG: f(new_x) = {new_f}")
+                        except Exception as e:
+                            print(f"ERROR in f(new_x): {e}")
+                            print(f"Input new_x was: {new_x}")
+                            raise 
 
-                        # Calculate errors and estimated cost
-                        local_err = linear_approximation_error(
-                            f, current_x, new_x, current_f, new_f)
+                        try:
+                            local_err = linear_approximation_error(
+                                f, current_x, new_x, current_f, new_f)
+                            print(f"DEBUG: local_err = {local_err}")
+                        except Exception as e:
+                            print(f"ERROR in linear_approximation_error:")
+                            print(f"Inputs: current_x={current_x}, new_x={new_x}, current_f={current_f}, new_f={new_f}")
+                            print(f"Error: {e}")
+                            raise 
+                            
                         new_cum_error = cum_error + local_err
-                        h = heuristic(f, new_x, base.X_target, new_f, base.f_target)
+                        
+                        try:
+                            h = heuristic(f, new_x, base.X_target, new_f, base.f_target)
+                            print(f"DEBUG: heuristic = {h}")
+                        except Exception as e:
+                            print(f"ERROR in heuristic:")
+                            print(f"Inputs: new_x={new_x}, target_x={base.X_target}, new_f={new_f}, target_f={base.f_target}")
+                            print(f"Error: {e}")
+                            raise 
+                            
                         new_est_cost = new_cum_error + h
-
-                        # Update path and check if it's unimodal
+                        print(f"DEBUG: new_cum_error={new_cum_error}, h={h}, new_est_cost={new_est_cost}")
+                        # --- Debug prints end ---
+                        
                         new_path = path + [new_x]
                         new_f_values = f_values + [new_f]
-                        if not is_unimodal(new_f_values):
-                            continue
+                        new_steps = steps + 1
 
-                        # Add new state to heap
+                        # Check unimodal before considering push
+                        try:
+                            is_uni = is_unimodal(new_f_values)
+                            print(f"DEBUG: is_unimodal = {is_uni}") # DEBUG
+                            if not is_uni:
+                                print(f"DEBUG: Path not unimodal, skipping.") # DEBUG
+                                continue
+                        except Exception as e:
+                             print(f"ERROR in is_unimodal:")
+                             print(f"Input f_values = {new_f_values}")
+                             print(f"Error: {e}")
+                             raise
+
+                        # Check if we already found a better path to new_state
+                        if new_state in visited and visited[new_state] <= new_cum_error:
+                            continue
+                            
+                        # If new_state not visited or this path is better, add to heap
                         counter += 1
-                        heapq.heappush(heap, (
+                        heap_item = (
                             new_est_cost,
                             new_cum_error,
-                            counter,
-                            new_state,
-                            new_path,
-                            new_f_values,
-                            steps + 1
-                        ))
+                            counter, # Tie-breaker
+                            new_state
+                        )
+                        print(f"DEBUG: Pushing to heap: est_cost={heap_item[0]}, cum_error={heap_item[1]}, state={heap_item[3]}") # DEBUG
+                        heapq.heappush(heap, heap_item)
+                        # Store path and steps data associated with this state exploration
+                        path_data[new_state] = (new_path, new_f_values)
+                        step_count[new_state] = new_steps
         
-        return None  # No path found 
+        print("DEBUG: A* search finished without finding a path.") # DEBUG
+        return None  # No path found
 
 class GreedyBestFirstStrategy(SearchStrategy):
     """
@@ -176,6 +228,7 @@ class GreedyBestFirstStrategy(SearchStrategy):
                 if state[i] < len(grid[i]) - 1:
                     remaining_steps = len(grid[i]) - state[i]
                     for step_size in range(remaining_steps - 1, 0, -1):
+                    
                         new_state = list(state)
                         new_state[i] += step_size
                         new_state = tuple(new_state)

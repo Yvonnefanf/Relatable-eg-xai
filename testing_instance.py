@@ -31,6 +31,10 @@ X.columns = [
     '% Lower Income in Area',
 ]
 
+# Identify categorical features
+categorical_feature_names = ['River']
+categorical_indices = [X.columns.get_loc(col) for col in categorical_feature_names if col in X.columns]
+
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -72,14 +76,22 @@ solver = RelatabilitySolver(
     prototypes=prototypes,
     prototype_labels=prototype_labels,
     partitions=4,  # number of grid points between prototype and target
-    max_steps=5    # maximum steps in the path
+    max_steps=5,    # maximum steps in the path
+    categorical_indices=categorical_indices # Pass the indices here
 )
 
 
-index = 3
+
+
+import sys
+if len(sys.argv) > 1:
+    index = int(sys.argv[1])
+else:
+    index = 0
+
 # Example: Explain a prediction for a test house
 test_house = X_test.iloc[index].values  # Take first house from test set as example
-print("=== Target House ===")
+print(f"=== Target House {index}===")
 print(f"Actual price: ${y_test.iloc[index]:.2f}")
 print(f"Predicted price: ${f(test_house):.2f}")
 print("\nGenerating explanation...")

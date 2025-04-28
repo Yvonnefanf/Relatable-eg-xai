@@ -34,13 +34,15 @@ class SearchPathBase:
                  prototype_labels: np.ndarray,
                  partitions: int = 2,
                  max_steps: int = 5,
-                 strategy: Optional[SearchStrategy] = None):
+                 strategy: Optional[SearchStrategy] = None,
+                 categorical_indices: Optional[List[int]] = None):
         self.f = f
         self.prototypes = prototypes
         self.prototype_labels = prototype_labels
         self.partitions = partitions
         self.max_steps = max_steps
         self.strategy = strategy
+        self.categorical_indices = categorical_indices if categorical_indices is not None else []
         
         # These will be set during prepare_search
         self.X_target = None
@@ -58,18 +60,22 @@ class SearchPathBase:
         self.f_proto = None
         self.monotonic_increasing = None
 
-    def prepare_search(self, X_target: np.ndarray, threshold: float = 0.1) -> None:
+    def prepare_search(self, X_target: np.ndarray, threshold: float = 0.1, categorical_indices: Optional[List[int]] = None) -> None:
         """
         Prepare the search configuration for a given target.
         
         Args:
             X_target: Target point to search towards
             threshold: Threshold for feature sensitivity filtering
+            categorical_indices: Optional list of indices for categorical features
         """
         from utils import dynamic_feature_filter, generate_grid_with_filter
         
         self.X_target = X_target
         self.f_target = self.f(X_target)
+
+        # Use categorical_indices from init if not provided here, otherwise use the provided ones
+        current_categorical_indices = categorical_indices if categorical_indices is not None else self.categorical_indices
 
         # Select the closest prototype
         distances = np.linalg.norm(self.prototypes - X_target, axis=1)
@@ -80,10 +86,10 @@ class SearchPathBase:
 
         # Adjust prototype for low-sensitivity directions
         self.x_proto_adj, self.variances, self.low_var_idx, self.high_var_idx = \
-            dynamic_feature_filter(self.f, self.X_proto, X_target, threshold=threshold)
+            dynamic_feature_filter(self.f, self.X_proto, X_target, threshold=threshold, categorical_indices=current_categorical_indices)
         
         self.grid = generate_grid_with_filter(
-            self.x_proto_adj, self.X_target, self.partitions, self.low_var_idx)
+            self.x_proto_adj, self.X_target, self.partitions, self.low_var_idx, categorical_indices=current_categorical_indices)
 
         self.d = len(self.X_proto)
         self.initial_state = tuple([0] * self.d)

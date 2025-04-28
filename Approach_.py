@@ -14,15 +14,17 @@ class RelatabilitySolver(SearchPathBase):
     Main solver class for finding relatable explanations using path search.
     Inherits from SearchPathBase to leverage the search infrastructure.
     """
-    def __init__(self, f, prototypes, prototype_labels, partitions=2, max_steps=5, strategy=None):
+    def __init__(self, f, prototypes, prototype_labels, partitions=2, max_steps=5, strategy=None, categorical_indices=None):
         super().__init__(
             f=f,
             prototypes=prototypes,
             prototype_labels=prototype_labels,
             partitions=partitions,
             max_steps=max_steps,
-            strategy=strategy or DEFAULT_STRATEGY
+            strategy=strategy or DEFAULT_STRATEGY,
+            categorical_indices=categorical_indices
         )
+        self.categorical_indices = categorical_indices if categorical_indices is not None else []
     
     def find_path(self, X_target, threshold=0.1):
         """
@@ -35,7 +37,7 @@ class RelatabilitySolver(SearchPathBase):
         Returns:
             SearchResult or None: Search results if successful
         """
-        self.prepare_search(X_target, threshold)
+        self.prepare_search(X_target, threshold, self.categorical_indices)
         return self.execute_search()
 
 def heuristic(f,current_x, target_x, current_f, target_f, num_samples=10):

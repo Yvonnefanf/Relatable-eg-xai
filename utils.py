@@ -1,57 +1,84 @@
 import numpy as np
 import pandas as pd
 # Grid generation that fixes low-variance features.
-def generate_grid_with_filter(x_proto_adj, x_target, partitions, low_variance_features):
+def generate_grid_with_filter(x_proto_adj, x_target, partitions, low_variance_features, categorical_indices=None):
     """
     For low-variance features, use a grid with a single point (the target).
-    For high-variance features, generate a grid between x_proto_adj and x_target.
+    For high-variance categorical features, use a two-point grid [proto, target].
+    For high-variance numerical features, generate a grid between x_proto_adj and x_target.
     """
+    if categorical_indices is None:
+        categorical_indices = []
     grid = []
     n_features = len(x_proto_adj)
     for i in range(n_features):
         if i in low_variance_features:
+            # Low variance (numerical or categorical) -> only target value
             grid.append(np.array([x_target[i]]))
+        elif i in categorical_indices:
+            # High variance categorical -> single step
+            grid.append(np.array([x_proto_adj[i], x_target[i]]))
         else:
+            # High variance numerical -> multi-step grid
             grid.append(np.linspace(x_proto_adj[i], x_target[i], partitions + 1))
     return grid
 
-def dynamic_feature_filter(f,x_proto, x_target, num_samples=10, threshold=0.1):
+def dynamic_feature_filter(f, x_proto, x_target, num_samples=10, threshold=0.1, categorical_indices=None):
     """
-    classify features as low- or high-sensitivity by computing
-    the variance of predictions when varying each feature, and then clustering 
-    the variances using k-means.
-    
+    Classify features as low- or high-sensitivity.
+    For numerical features: compute variance of predictions when varying the feature.
+    For categorical features: classify as low-sensitivity if the value doesn't change, high otherwise.
+
     Parameters:
+      f: Prediction function.
       x_proto: 1D numpy array for the prototype.
       x_target: 1D numpy array for the target.
-      num_samples: Number of interpolation points per feature.
-    
+      num_samples: Number of interpolation points per numerical feature.
+      threshold: Sensitivity threshold for numerical features.
+      categorical_indices: List of indices for categorical features.
+
     Returns:
-      variances: Array of variance values for each feature.
+      x_proto_adj: Adjusted prototype where low-sensitivity numerical features are set to target value.
+      variances: Array of variance values for numerical features (None for categorical).
       low_variance_features: List of indices of features with low sensitivity.
       high_variance_features: List of indices of features with high sensitivity.
     """
+    if categorical_indices is None:
+        categorical_indices = []
     x_proto_adj = np.copy(x_proto)
     n_features = len(x_proto)
-    variances = np.zeros(n_features)
+    variances = np.full(n_features, np.nan)  # Initialize variances with NaN
     low_variance_features = []
     high_variance_features = []
+
     for i in range(n_features):
-        # Generate interpolation values for the i-th feature.
-        interp_vals = np.linspace(x_proto[i], x_target[i], num_samples)
-        preds = []
-        for val in interp_vals:
-            x_temp = np.copy(x_proto)
-            x_temp[i] = val  # Vary only the i-th feature.
-            preds.append(f(x_temp))
-        preds = np.array(preds)
-        var_val = np.var(preds)
-        variances[i] = var_val
-        if var_val < threshold:
-          x_proto_adj[i] = x_target[i]
-          low_variance_features.append(i)
+        if i in categorical_indices:
+            # Handle categorical features
+            if x_proto[i] == x_target[i]:
+                low_variance_features.append(i)
+                # x_proto_adj[i] remains x_proto[i] which is == x_target[i]
+            else:
+                high_variance_features.append(i)
+                # x_proto_adj[i] remains x_proto[i], grid will handle the step
         else:
-          high_variance_features.append(i)
+            # Handle numerical features (existing logic)
+            interp_vals = np.linspace(x_proto[i], x_target[i], num_samples)
+            preds = []
+            for val in interp_vals:
+                x_temp = np.copy(x_proto_adj) # Use x_proto_adj for context
+                x_temp[i] = val
+                preds.append(f(x_temp))
+            preds = np.array(preds)
+            var_val = np.var(preds)
+            variances[i] = var_val # Store variance for numerical features
+
+            if var_val < threshold:
+                x_proto_adj[i] = x_target[i] # Adjust prototype for low-variance numerical
+                low_variance_features.append(i)
+            else:
+                high_variance_features.append(i)
+                # x_proto_adj[i] remains x_proto[i] for high-variance numerical
+
     return x_proto_adj, variances, low_variance_features, high_variance_features
 
 
