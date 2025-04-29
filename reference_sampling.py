@@ -15,9 +15,10 @@ class ReferenceSampler:
         self.y = y
         self.categorical_indices = categorical_indices
 
-    def sampling_by_ref_val(self, instance: np.ndarray, ref_val: float, f: callable) -> Dict[str, np.ndarray]:
+    def sampling_by_ref_val(self, instance: np.ndarray, ref_val: float, f: callable) -> np.ndarray:
         """
-        Samples references based on similarity, typicality, and prediction accuracy.
+        Samples a single reference instance representing the best trade-off 
+        between similarity, typicality, and prediction accuracy.
 
         Args:
             instance: The input instance to find similar references for.
@@ -25,33 +26,46 @@ class ReferenceSampler:
             f: The prediction function (model.predict or similar).
 
         Returns:
-            A dictionary containing the 'similar', 'typical', and 'accurate' reference instances.
+            The single reference instance from self.X that offers the best trade-off.
         """
-        
-        # 1. Most Similar Instance
-        distances = np.linalg.norm(self.X - instance, axis=1)
-        similar_idx = np.argmin(distances)
-        x_similar = self.X[similar_idx]
+        n_samples = self.X.shape[0]
+        if n_samples == 0:
+            raise ValueError("Dataset X is empty.")
 
-        # 2. Most Typical Instance
-        # Assuming typicality means closest to the median feature values
+        # 1. Calculate Metrics
+        # Similarity distance
+        distances = np.linalg.norm(self.X - instance, axis=1)
+        
+        # Typicality distance (distance to median)
         median_X = np.median(self.X, axis=0)
         typicality_distances = np.linalg.norm(self.X - median_X, axis=1)
-        typical_idx = np.argmin(typicality_distances)
-        x_typical = self.X[typical_idx]
 
-        # 3. Most Prediction Accurate Instance
-        # Find instance x_i where f(x_i) is closest to y_i
-        # Assuming f takes one instance at a time
-        pred_errors = np.array([abs(f(x_i) - self.y[i]) for i, x_i in enumerate(self.X)])
-        accurate_idx = np.argmin(pred_errors)
-        x_accurate = self.X[accurate_idx]
+        # Prediction error
+        # Ensure f is called correctly, assuming it takes one instance
+        predictions = np.array([f(x_i) for x_i in self.X])
+        pred_errors = np.abs(predictions - self.y)
 
-        return {
-            'similar': x_similar,
-            'typical': x_typical,
-            'accurate': x_accurate
-        }
+        # Handle cases where all values are the same to avoid division by zero
+        def normalize(values):
+            min_val = np.min(values)
+            max_val = np.max(values)
+            if max_val == min_val:
+                return np.zeros_like(values)
+            return (values - min_val) / (max_val - min_val)
+
+        # 2. Normalize Metrics (0 = best, 1 = worst)
+        norm_dist = normalize(distances)
+        norm_typ = normalize(typicality_distances)
+        norm_err = normalize(pred_errors)
+
+        # 3. Combine Scores (Equal Weights)
+        # Lower score is better
+        combined_scores = (norm_dist + norm_typ + norm_err) / 3.0 
+
+        # 4. Find Best Trade-off Instance
+        best_tradeoff_idx = np.argmin(combined_scores)
+        
+        return self.X[best_tradeoff_idx]
 
 # Example Usage (requires data and a prediction function 'model_predict')
 # if __name__ == '__main__':
@@ -66,11 +80,9 @@ class ReferenceSampler:
 #     test_instance = np.random.rand(5)
 #     test_ref_val = model_predict(test_instance) # Example reference value
 
-#     references = sampler.sampling_by_ref_val(test_instance, test_ref_val, model_predict)
+#     best_reference = sampler.sampling_by_ref_val(test_instance, test_ref_val, model_predict)
     
 #     print("Input Instance:", test_instance)
 #     print("Reference Value:", test_ref_val)
-#     print("\n--- Found References ---")
-#     print("Most Similar:", references['similar'])
-#     print("Most Typical:", references['typical'])
-#     print("Most Accurate Prediction:", references['accurate'])
+#     print("\n--- Best Trade-off Reference ---")
+#     print(best_reference)
