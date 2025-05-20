@@ -103,11 +103,11 @@ class AStarStrategy(SearchStrategy):
                         
                         new_x = np.array([grid[j][new_state[j]] for j in range(base.d)])
                         # --- Debug prints start ---
-                        print(f"DEBUG: Dimension={i}, StepSize={step_size}, NewState={new_state}") 
-                        print(f"DEBUG: new_x = {new_x}")
+                        # print(f"DEBUG: Dimension={i}, StepSize={step_size}, NewState={new_state}") 
+                        # print(f"DEBUG: new_x = {new_x}")
                         try:
                             new_f = f(new_x)
-                            print(f"DEBUG: f(new_x) = {new_f}")
+                            # print(f"DEBUG: f(new_x) = {new_f}")
                         except Exception as e:
                             print(f"ERROR in f(new_x): {e}")
                             print(f"Input new_x was: {new_x}")
@@ -116,7 +116,7 @@ class AStarStrategy(SearchStrategy):
                         try:
                             local_err = linear_approximation_error(
                                 f, current_x, new_x, current_f, new_f)
-                            print(f"DEBUG: local_err = {local_err}")
+                            # print(f"DEBUG: local_err = {local_err}")
                         except Exception as e:
                             print(f"ERROR in linear_approximation_error:")
                             print(f"Inputs: current_x={current_x}, new_x={new_x}, current_f={current_f}, new_f={new_f}")
@@ -127,7 +127,7 @@ class AStarStrategy(SearchStrategy):
                         
                         try:
                             h = heuristic(f, new_x, base.X_target, new_f, base.f_target)
-                            print(f"DEBUG: heuristic = {h}")
+                            # print(f"DEBUG: heuristic = {h}")
                         except Exception as e:
                             print(f"ERROR in heuristic:")
                             print(f"Inputs: new_x={new_x}, target_x={base.X_target}, new_f={new_f}, target_f={base.f_target}")
@@ -135,7 +135,7 @@ class AStarStrategy(SearchStrategy):
                             raise 
                             
                         new_est_cost = new_cum_error + h
-                        print(f"DEBUG: new_cum_error={new_cum_error}, h={h}, new_est_cost={new_est_cost}")
+                        # print(f"DEBUG: new_cum_error={new_cum_error}, h={h}, new_est_cost={new_est_cost}")
                         # --- Debug prints end ---
                         
                         new_path = path + [new_x]
@@ -145,9 +145,9 @@ class AStarStrategy(SearchStrategy):
                         # Check unimodal before considering push
                         try:
                             is_uni = is_unimodal(new_f_values)
-                            print(f"DEBUG: is_unimodal = {is_uni}") # DEBUG
+                            # print(f"DEBUG: is_unimodal = {is_uni}") # DEBUG
                             if not is_uni:
-                                print(f"DEBUG: Path not unimodal, skipping.") # DEBUG
+                                # print(f"DEBUG: Path not unimodal, skipping.") # DEBUG
                                 continue
                         except Exception as e:
                              print(f"ERROR in is_unimodal:")
@@ -167,13 +167,13 @@ class AStarStrategy(SearchStrategy):
                             counter, # Tie-breaker
                             new_state
                         )
-                        print(f"DEBUG: Pushing to heap: est_cost={heap_item[0]}, cum_error={heap_item[1]}, state={heap_item[3]}") # DEBUG
+                        # print(f"DEBUG: Pushing to heap: est_cost={heap_item[0]}, cum_error={heap_item[1]}, state={heap_item[3]}") # DEBUG
                         heapq.heappush(heap, heap_item)
                         # Store path and steps data associated with this state exploration
                         path_data[new_state] = (new_path, new_f_values)
                         step_count[new_state] = new_steps
         
-        print("DEBUG: A* search finished without finding a path.") # DEBUG
+        # print("DEBUG: A* search finished without finding a path.") # DEBUG
         return None  # No path found
 
 class GreedyBestFirstStrategy(SearchStrategy):
